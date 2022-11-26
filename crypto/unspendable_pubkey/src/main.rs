@@ -13,29 +13,47 @@ use rand::{Rng};
 const H_HEX: &str = "0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0";
 const G_HEX: &str = "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798";
 
-fn tweak_for_unspendable() {
+// calc pk = H + rG
+// r must be 0..FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141 - 1
+fn tweak_for_unspendable(r : &[u8])-> Result<PublicKey, Error> {
 
     let H = PublicKey::from_slice(hex::decode(H_HEX).expect("valid hex").as_ref()).expect("valid pubkey hex");
     let G = PublicKey::from_slice(hex::decode(G_HEX).expect("valid hex").as_ref()).expect("valid pubkey hex");
 
-    // Sample r
-    // let r = hex::decode("0197e7e118cd26d2146f9fed5dee89133187a3c3e9d2e68ccafe93a1d5c85e2a").expect("valid hex");
-    // let r = hex::decode("0101010101010101010101010101010101010101010101010101010101010101").expect("valid hex");
-
-    // Random r of 32 byte (could be a txid)
-    // r must be 0..FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141 - 1
-    let mut rng = rand::thread_rng();
-    let r = rng.gen::<[u8;32]>();
-
     let secp = Secp256k1::new();
     let mut pk_rG = G;
 
-    pk_rG.mul_assign(&secp, r.as_slice()).expect("cannot mul r x H");      // r*G
-    let unspendable_pk = H.combine(&pk_rG).expect("invalid combine");  // H + rG
-
-    println!("unspendable_pk={:?}", unspendable_pk.to_string());
+    if let Err(err) = pk_rG.mul_assign(&secp, r) {     // r * G
+        println!("cannot mul r x H {:?}", err);                     
+        return Err(err);
+    }  
+    match H.combine(&pk_rG) {   // H + rG
+        Ok(unspendable_pk) => {
+            println!("unspendable_pk={:?}", unspendable_pk.to_string());
+            return Ok(unspendable_pk);
+        },
+        Err(err) => {
+            println!("cannot combine H + rG {:?}", err);                    
+            return Err(err);
+        },
+    }
 }
 
 fn main() {
-    tweak_for_unspendable();
+
+    // Sample r's:
+    let r = hex::decode("0197e7e118cd26d2146f9fed5dee89133187a3c3e9d2e68ccafe93a1d5c85e2a").expect("valid hex");
+    assert!(tweak_for_unspendable(&r).is_ok());
+
+    let r = hex::decode("0101010101010101010101010101010101010101010101010101010101010101").expect("valid hex");
+    assert!(tweak_for_unspendable(&r).is_ok());
+
+    // try invalid r: 
+    let r = hex::decode("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141").expect("valid hex");
+    assert!(tweak_for_unspendable(&r).is_err());
+
+    // random 32 byte
+    let mut rng = rand::thread_rng();
+    let r = rng.gen::<[u8;32]>();
+    println!("for r={:?} is_ok={:?}", hex::encode(r), tweak_for_unspendable(&r).is_ok());
 }
