@@ -12,14 +12,18 @@ use rand::{Rng};
 
 const H_HEX: &str = "0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0";
 const G_HEX: &str = "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798";
-                  // 02a148d4d4e454771bce1d48b386dbfb792b734d09f3c6ea600e113d6aa152835e
 
 fn tweak_for_unspendable() {
 
     let H = PublicKey::from_slice(hex::decode(H_HEX).expect("valid hex").as_ref()).expect("valid pubkey hex");
     let G = PublicKey::from_slice(hex::decode(G_HEX).expect("valid hex").as_ref()).expect("valid pubkey hex");
+
+    // Sample r
     // let r = hex::decode("0197e7e118cd26d2146f9fed5dee89133187a3c3e9d2e68ccafe93a1d5c85e2a").expect("valid hex");
     // let r = hex::decode("0101010101010101010101010101010101010101010101010101010101010101").expect("valid hex");
+
+    // Random r of 32 byte (could be a txid)
+    // r must be 0..FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141 - 1
     let mut rng = rand::thread_rng();
     let r = rng.gen::<[u8;32]>();
 
